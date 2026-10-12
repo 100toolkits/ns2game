@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Strike - Arcade Shooter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #05050a;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            color: #ffffff;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #020205;
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.7), 0 0 20px rgba(0, 243, 255, 0.4);
+        }
+        .glow-box {
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.4), inset 0 0 20px rgba(0, 243, 255, 0.15);
+        }
+        .btn-arcade {
+            background: linear-gradient(135deg, #00f3ff 0%, #7000ff 100%);
+            transition: all 0.1s ease;
+        }
+        .btn-arcade:active {
+            transform: scale(0.95);
+            filter: brightness(1.2);
+        }
+        .btn-ad {
+            background: linear-gradient(135deg, #00ff87 0%, #60efff 100%);
+            transition: all 0.1s ease;
+        }
+        .btn-ad:active {
+            transform: scale(0.95);
+            filter: brightness(1.2);
+        }
+        .btn-heavy {
+            background: linear-gradient(135deg, #ff3300 0%, #ff0055 100%);
+            transition: all 0.1s ease;
+        }
+        .btn-heavy:active {
+            transform: scale(0.95);
+            filter: brightness(1.2);
+        }
+        .btn-coins {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            transition: all 0.1s ease;
+        }
+        .btn-coins:active {
+            transform: scale(0.95);
+            filter: brightness(1.2);
+        }
+        .btn-jackpot {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            transition: all 0.1s ease;
+        }
+        .btn-jackpot:active {
+            transform: scale(0.95);
+            filter: brightness(1.2);
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f3ff;
+            border-radius: 2px;
+        }
+
+        /* SPIN WHEEL STYLES */
+        .wheel-container {
+            position: relative;
+            margin: 10px auto 15px;
+            width: 200px;
+            height: 200px;
+        }
+        .wheel {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                #ef4444 0deg 40deg,
+                #3b82f6 40deg 80deg,
+                #ef4444 80deg 120deg,
+                #3b82f6 120deg 160deg,
+                #ef4444 160deg 200deg,
+                #3b82f6 200deg 240deg,
+                #ef4444 240deg 280deg,
+                #3b82f6 280deg 320deg,
+                #10b981 320deg 360deg
+            );
+            border: 4px solid #ffffff;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+            transition: transform 3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform: rotate(0deg);
+        }
+        .wheel-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: 0 50%;
+            transform: rotate(calc(var(--i) * 40deg - 70deg)) translateX(20px);
+            color: white;
+            font-size: 11px;
+            font-weight: 800;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
+            white-space: nowrap;
+            margin-top: -6px; 
+            z-index: 5;
+        }
+        .wheel-pointer {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 20px solid #ffffff;
+            z-index: 10;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));
+        }
+    </style>
+</head>
+<body class="relative w-full h-full flex flex-col items-center justify-center">
+
+<div id="game-container" class="relative w-full h-full max-w-md mx-auto overflow-hidden shadow-2xl flex flex-col">
+    <!-- Main Canvas Area -->
+    <div class="relative w-full flex-1 overflow-hidden">
+        <canvas id="gameCanvas" class="absolute inset-0"></canvas>
+
+        <!-- HUD Top Bar with Floating Close Button & Total Coins -->
+        <div id="hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-center pointer-events-auto hidden z-20">
+            <div class="flex items-center gap-3">
+                <button id="btn-floating-close" class="w-9 h-9 rounded-full bg-red-600/80 hover:bg-red-600 text-white font-bold text-sm border border-red-400/50 flex items-center justify-center shadow-lg active:scale-95 transition-all">✕</button>
+                <div class="flex flex-col items-start pointer-events-none">
+                    <div class="text-[10px] text-yellow-400 font-bold tracking-wider uppercase">TOTAL COINS</div>
+                    <div id="hud-coins" class="text-base font-black text-yellow-300">🪙 0</div>
+                </div>
+            </div>
+            <div class="flex flex-col items-end pointer-events-none">
+                <div class="text-[10px] text-red-400 font-bold tracking-wider uppercase">HEALTH</div>
+                <div class="flex items-center gap-1 mt-0.5" id="hud-health-bars">❤</div>
+            </div>
+        </div>
+
+        <!-- Boss Health Bar Container -->
+        <div id="boss-hud" class="absolute top-16 left-4 right-4 flex flex-col items-center pointer-events-none hidden z-10 transition-all duration-300">
+            <div class="flex justify-between w-full text-xs text-red-400 font-bold mb-1">
+                <span id="boss-name">BOSS</span>
+                <span id="boss-hp-text">100%</span>
+            </div>
+            <div class="w-full h-3 bg-gray-900 border border-red-500 rounded-full overflow-hidden p-0.5">
+                <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-600 to-orange-500 rounded-full transition-all duration-100" style="width: 100%;"></div>
+            </div>
+        </div>
+
+        <!-- Combo Notification -->
+        <div id="combo-hud" class="absolute top-28 left-1/2 transform -translate-x-1/2 pointer-events-none opacity-0 transition-opacity duration-200 z-10 text-center">
+            <div id="combo-text" class="text-yellow-400 font-black text-2xl italic tracking-widest glow-text">COMBO x2</div>
+        </div>
+
+        <!-- Touch Controls Overlay -->
+        <div id="controls-overlay" class="absolute bottom-0 left-0 w-full p-6 flex justify-between items-center pointer-events-auto hidden z-10">
+            <button id="btn-left" class="w-20 h-20 bg-white/10 active:bg-white/30 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-cyan-400 text-3xl font-bold backdrop-blur-sm shadow-lg select-none">◀</button>
+
+            <div class="flex flex-col items-center gap-2">
+                <button id="btn-floating-heavy" class="btn-heavy py-2 px-3 rounded-xl font-bold text-white text-xs uppercase shadow-lg pointer-events-auto hidden z-20 flex items-center gap-1">
+                    🔫 <span id="heavy-btn-text">Get Heavy Gun with Shield(50🪙)</span>
+                </button>
+            </div>
+
+            <button id="btn-right" class="w-20 h-20 bg-white/10 active:bg-white/30 border-2 border-cyan-400/50 rounded-2xl flex items-center justify-center text-cyan-400 text-3xl font-bold backdrop-blur-sm shadow-lg select-none">▶</button>
+        </div>
+
+        <!-- 2. ACCOUNT DASHBOARD -->
+        <div id="screen-dashboard" class="absolute inset-0 bg-gradient-to-b from-gray-950 via-purple-950/80 to-black flex flex-col items-center justify-between py-6 px-5 z-20 overflow-y-auto">
+            <div class="w-full flex justify-between items-center bg-white/5 border border-white/10 p-3.5 rounded-2xl">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full border border-cyan-400/60 bg-black flex items-center justify-center text-lg">🚀</div>
+                    <div class="flex flex-col">
+                        <span id="dash-username" class="text-sm font-bold text-cyan-300">@Pilot</span>
+                        <span class="text-[11px] text-gray-400 font-semibold">NS 2</span>
+                    </div>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-[10px] text-yellow-400 font-bold tracking-wider">COLLECTED COINS</span>
+                    <span id="dash-coins" class="text-base font-black text-yellow-300">🪙 0</span>
+                </div>
+            </div>
+
+            <div class="relative w-32 h-32 my-2 rounded-full border-2 border-cyan-400/70 bg-black/70 glow-box flex items-center justify-center overflow-hidden">
+                <canvas id="menuShipCanvas" width="128" height="128" class="absolute inset-0"></canvas>
+            </div>
+
+            <div class="flex flex-col gap-2.5 w-full max-w-xs">
+                <button id="btn-play" class="btn-arcade w-full py-3.5 rounded-xl font-bold text-base text-black tracking-wider shadow-lg uppercase">Play Game</button>
+                <button id="btn-jackpot-option" class="btn-jackpot w-full py-3 rounded-xl font-bold text-sm text-white tracking-wider shadow-lg uppercase flex items-center justify-center gap-2">🎁 <span id="dash-jackpot-btn-title">Win Cash Prizes</span></button>
+                <div class="flex gap-2 w-full">
+                    <button id="btn-instructions" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-semibold text-xs tracking-wider uppercase transition-all">Instructions</button>
+                    <button id="btn-sound" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-semibold text-xs tracking-wider uppercase transition-all text-center">SOUND: ON</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. WEEKLY JACKPOT MODAL -->
+        <div id="screen-jackpot-modal" class="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col justify-between p-5 z-40 hidden overflow-y-auto">
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col border-b border-white/10 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-2xl">🎁</span>
+                        <h2 id="jp-modal-title" class="text-xl font-bold text-pink-400">Weekly Lucky Draw</h2>
+                    </div>
+                </div>
+
+                <!-- Section 1: Friday Jackpot Info -->
+                <div class="bg-gradient-to-br from-pink-900/40 to-purple-900/40 border border-pink-500/30 rounded-2xl p-4 flex flex-col gap-2">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-[10px] text-pink-300 font-bold uppercase tracking-wider">Prize</div>
+                            <div id="jp-prize-amount" class="text-2xl font-black text-yellow-300">Loading prizes....</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Participating Fee</div>
+                            <div id="jp-fee-amount" class="text-sm font-bold text-cyan-300">Loading fee...</div>
+                        </div>
+                    </div>
+
+                    <!-- Conditions Warning Message -->
+                    <div id="jp-lock-reason" class="text-[11px] font-semibold text-yellow-400 bg-black/40 p-2 rounded-lg border border-yellow-500/20 text-center hidden"></div>
+
+                    <button id="btn-participate-now" class="btn-jackpot w-full py-2.5 rounded-xl font-bold text-xs text-white uppercase tracking-wider mt-1">Participate Now</button>
+                    <h3 id="jp-modal-title-2" class="text-x4 font-bold text-pink-400">Next Lucky Draw starting from Saturday: October 16,2026</h3>
+                </div>
+
+                <!-- Section 2: Previous Friday Winners -->
+                <div class="flex flex-col gap-2">
+                    <h2 id="jp-winners-section-title" class="text-xs font-bold text-cyan-400 normal-case tracking-wider">Lucky Draw Winners Result</h2>
+                    <div id="winners-list-container" class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                        <div class="text-xs text-gray-500 italic text-center py-2">Loading winners...</div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-jackpot-bottom-close" class="w-full py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-semibold text-xs tracking-wider uppercase transition-all mt-4">Close</button>
+        </div>
+
+        <!-- 6. JACKPOT PARTICIPATION FORM MODAL -->
+        <div id="screen-participate-form" class="absolute inset-0 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6 z-50 hidden">
+            <div class="bg-gray-900 border border-pink-500/50 rounded-2xl p-5 w-full max-w-xs flex flex-col shadow-2xl glow-box relative gap-3">
+                <button id="btn-form-close" class="absolute top-3 right-3 text-white font-bold text-lg w-7 h-7 rounded-full border border-white/30 flex items-center justify-center bg-white/10">✕</button>
+                <div class="text-pink-400 font-black text-lg glow-text text-center uppercase">Enter Details</div>
+                <p class="text-gray-400 text-[11px] text-center">Enter details to participate in this Lucky Draw!</p>
+
+                <div class="flex flex-col gap-2 mt-1">
+                    <input type="text" id="jp-input-name" placeholder="Full Name..." class="w-full py-2.5 px-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-pink-400" />
+                    <input type="text" id="jp-input-city" placeholder="City Name..." class="w-full py-2.5 px-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-pink-400" />
+                    <input type="tel" id="jp-input-phone" placeholder="Phone Number..." class="w-full py-2.5 px-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-gray-500 text-xs focus:outline-none focus:border-pink-400" />
+                </div>
+
+                <button id="btn-send-request" class="btn-jackpot w-full py-3 rounded-xl font-bold text-xs text-white uppercase tracking-wider mt-1">Send Request</button>
+            </div>
+        </div>
+
+        <!-- INSTRUCTIONS SCREEN -->
+        <div id="screen-instructions" class="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col justify-between p-6 z-30 hidden">
+            <div class="flex flex-col gap-4 mt-4">
+                <h2 class="text-2xl font-black text-cyan-400 glow-text text-center">HOW TO PLAY</h2>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-gray-300 space-y-3">
+                    <p><strong class="text-cyan-300">MOVEMENT:</strong> Use the ◀ ▶ buttons or drag horizontally anywhere on screen to move LEFT and RIGHT.</p>
+                    <p><strong class="text-cyan-300">COMBAT:</strong> Your spaceship fires upward automatically. Eliminate enemies and collect power-ups.</p>
+                    <p><strong class="text-cyan-300">HEAVY WEAPON & SHIELD:</strong> Spend coins during gameplay to instantly trigger temporary Heavy Gun firepower or Shields.</p>
+                    <p><strong class="text-cyan-300">BOSSES:</strong> Every 10 waves, a massive Boss ship appears!</p>
+                </div>
+            </div>
+            <button id="btn-back-menu" class="btn-arcade w-full py-3 rounded-xl font-bold text-black tracking-wider uppercase">Back to Dashboard</button>
+        </div>
+
+        <!-- PAUSE SCREEN -->
+        <div id="screen-pause" class="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 z-30 hidden">
+            <h2 class="text-3xl font-black text-cyan-400 glow-text mb-6">GAME PAUSED</h2>
+            <div class="flex flex-col gap-4 w-full max-w-xs">
+                <button id="btn-resume" class="btn-arcade w-full py-3 rounded-xl font-bold text-black uppercase">Resume</button>
+                <button id="btn-restart" class="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl font-semibold uppercase">Restart</button>
+                <button id="btn-quit" class="w-full py-3 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 rounded-xl font-semibold text-red-400 uppercase">Dashboard</button>
+            </div>
+        </div>
+
+        <!-- GAME OVER SCREEN -->
+        <div id="screen-gameover" class="absolute inset-0 bg-gradient-to-b from-gray-950 via-purple-950/80 to-black flex flex-col items-center justify-between p-6 z-30 hidden">
+            <div class="flex flex-col items-center mt-4">
+                <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 glow-text text-center leading-tight">GAME<br>OVER</h1>
+                <p class="text-gray-400 text-xs mt-2 text-center max-w-xs">Your session has ended.</p>
+            </div>
+
+            <!-- Grouped Statistics & Action Buttons -->
+            <div class="flex flex-col gap-2 w-full max-w-xs my-auto">
+                <div class="bg-black/40 border border-white/10 rounded-2xl p-3 flex flex-col items-center shadow-lg">
+                    <div class="text-xs text-yellow-400 font-bold uppercase tracking-wider mb-1">Arcade Statistics</div><br>
+                    <div class="text-base font-bold text-white">Coins Collected: <span id="go-coins-val" class="text-yellow-300">0</span></div>
+                </div><br><br>
+
+                <button id="btn-get-extra-coins" class="btn-coins w-full py-3 rounded-xl font-black text-sm text-black tracking-wider shadow-lg uppercase flex items-center justify-center gap-1.5">GET EXTRA COINS</button><br>
+                <button id="btn-restart-go" class="btn-arcade w-full py-3.5 rounded-xl font-bold text-base text-black tracking-wider shadow-lg uppercase">Play Again</button><br>
+            </div>
+        </div>
+
+        <!-- LUCKY SPIN WHEEL MODAL -->
+        <div id="screen-spin-modal" class="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 z-50 hidden">
+            <div class="bg-gray-900 border border-cyan-400/50 rounded-2xl p-5 w-full max-w-xs flex flex-col items-center shadow-2xl glow-box relative">
+                <button id="btn-spin-close" class="absolute top-3 right-3 text-white font-bold text-lg w-8 h-8 rounded-full border border-white/30 flex items-center justify-center bg-white/10">✕</button>
+                <div class="text-yellow-400 font-black text-xl glow-text mb-1 text-center">Lucky Spin Wheel</div>
+                <div class="text-gray-300 text-xs text-center mb-2">Watch Ad to Spin & Win Extra Coins!</div>
+
+                <div class="wheel-container">
+                    <div class="wheel-pointer"></div>
+                    <div class="wheel" id="spinWheelInner">
+                        <div class="wheel-text" style="--i:0;" id="slice0">10 🪙</div>
+                        <div class="wheel-text" style="--i:1;" id="slice1">20 🪙</div>
+                        <div class="wheel-text" style="--i:2;" id="slice2">30 🪙</div>
+                        <div class="wheel-text" style="--i:3;" id="slice3">40 🪙</div>
+                        <div class="wheel-text" style="--i:4;" id="slice4">50 🪙</div>
+                        <div class="wheel-text" style="--i:5;" id="slice5">60 🪙</div>
+                        <div class="wheel-text" style="--i:6;" id="slice6">80 🪙</div>
+                        <div class="wheel-text" style="--i:7;" id="slice7">100 🪙</div>
+                        <div class="wheel-text" style="--i:8; color: #ffffff;">Try Again ❌</div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 w-full mt-2">
+                    <button id="btn-spin-action" class="btn-ad w-full py-3 rounded-xl font-bold text-black uppercase shadow-lg text-sm">📺 Watch Ad to Spin</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AD OVERLAY MODAL -->
+        <div id="screen-ad-loading" class="absolute inset-0 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6 z-40 hidden">
+            <div class="text-cyan-400 font-black text-2xl glow-text mb-2">ADMOB REWARDED INTERSTITIAL</div>
+            <p id="ad-timer-text" class="text-yellow-400 text-lg font-bold mb-4 text-center">Loading Ad...</p>
+            <div class="w-16 h-16 border-4 border-cyan-400 border-t-transparent rounded-full animate-spin mb-6"></div>
+            <div class="text-xs text-gray-500">Please watch the ad to claim your reward.</div>
+        </div>
+
+        <!-- WAVE ANNOUNCEMENT BANNER -->
+        <div id="wave-banner" class="absolute top-1/3 left-0 w-full pointer-events-none flex flex-col items-center justify-center opacity-0 transition-all duration-300 z-20">
+            <div id="wave-banner-title" class="text-3xl font-black text-cyan-400 glow-text tracking-widest uppercase">WAVE 1</div>
+            <div id="wave-banner-sub" class="text-sm font-semibold text-white/80 tracking-wider mt-1">GET READY</div>
+        </div>
+
+        <!-- Toast Notification Box -->
+        <div id="toast" class="absolute bottom-24 left-1/2 transform -translate-x-1/2 bg-cyan-400 text-black px-4 py-2 rounded-full font-bold text-xs opacity-0 transition-opacity duration-300 pointer-events-none z-50 shadow-lg">Action Successful!</div>
+    </div>
+
+    <!-- AdMob Banner Ad Space at the Bottom -->
+    <div id="admob-banner-container" class="w-full h-[50px] bg-black/80 border-t border-cyan-500/20 flex items-center justify-center z-20 shrink-0">
+        <span class="text-xs text-cyan-400/60 font-semibold tracking-widest uppercase">NS 2 ARCADE</span>
+    </div>
+</div>
+
+<script>
+    // --- GOOGLE APPS SCRIPT WEB APP CONFIGURATION ---
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxUoc1UeHV_w_8wqLWeFymrK42n-ajvt8_UGaCOPDA2XTMfs80bh8MFC9PyFI9MvfX_/exec";
+
+    // --- IMAGE ASSETS CONFIGURATION ---
+    const playerImg = new Image();
+    playerImg.src = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgdy_hbJjL6u1RA1LjWNwVDlelIkPF-EBGBQUfPSLRQVV96oSVCvtkWRjTRGc5MnoZEbBx5cDNo0q8nVkp5DEglecBh6kFOVEvisVxBcZtTonr0_7jsFZiX9iE-NLJ9MbZ5OXczJ_bJWIdvQx2MbEW7OlFmQfNZW7Qtwu4l-PcvFtZ2n3ntpuqis4GEg6kM/s320/player.png';
+
+    const enemyImg = new Image();
+    enemyImg.src = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgdy_hbJjL6u1RA1LjWNwVDlelIkPF-EBGBQUfPSLRQVV96oSVCvtkWRjTRGc5MnoZEbBx5cDNo0q8nVkp5DEglecBh6kFOVEvisVxBcZtTonr0_7jsFZiX9iE-NLJ9MbZ5OXczJ_bJWIdvQx2MbEW7OlFmQfNZW7Qtwu4l-PcvFtZ2n3ntpuqis4GEg6kM/s320/player.png';
+
+    const bossImg = new Image();
+    bossImg.src = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhOueembki_c8qPpiqVYu2r2zsruPNJA2rhzFukVIYl03lnyp_HeFE2rse9oIWwaaXs4GJpPcMWD2GCauMzx-ykQGjchVGaMVoAipAXt3Cdp8Ttr6lgReG6BDgmjnFVhZPzKLitaC3SXoEDPInTw5jNNcki22jvKYaVPy91Xo2DP8q2-nQxIQNhtfBGskPU/s320/boss-player.png';
+
+    let currentAdInterval = null;
+    let pendingRestartCallback = null;
+    let pendingAdCallback = null;
+    let isSpinning = false;
+    let currentSpinRotation = 0;
+    let spinChances = 1;
+    let spinCountdownTimer = null;
+    let hasSpunWheel = false;
+
+    let jackpotTitle = "Weekly Lucky Draw";
+    let nextLuckyDrawTitle = "Next Lucky Draw";
+    let winnerResultTitle = "Lucky Draw Winners Result";
+    let jackpotPrizeAmount = "Loading Prizes...";
+    let jackpotParticipatingFee = 0;
+    let isParticipateLocked = false;
+
+    const spinSlices = [
+        { label: "10 🪙", coins: 10 },
+        { label: "20 🪙", coins: 20 },
+        { label: "30 🪙", coins: 30 },
+        { label: "40 🪙", coins: 40 },
+        { label: "50 🪙", coins: 50 },
+        { label: "60 🪙", coins: 60 },
+        { label: "80 🪙", coins: 80 },
+        { label: "100 🪙", coins: 100 },
+        { label: "Try Again ❌", coins: 0 }
+    ];
+
+    function generateUniqueUsername() {
+        let storedName = localStorage.getItem('neon_strike_username');
+        if (!storedName) {
+            const randomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+            storedName = `Pilot_${randomId}`;
+            localStorage.setItem('neon_strike_username', storedName);
+        }
+        return storedName;
+    }
+
+    function showInterstitialAdAndRestart(callback) {
+        pendingRestartCallback = callback;
+        if (window.AndroidBridge && typeof window.AndroidBridge.showInterstitialAd === 'function') {
+            window.AndroidBridge.showInterstitialAd();
+        } else if (window.AndroidBridge && typeof window.AndroidBridge.showInterstitial === 'function') {
+            window.AndroidBridge.showInterstitial();
+        } else {
+            setTimeout(() => {
+                if (pendingRestartCallback) {
+                    pendingRestartCallback();
+                    pendingRestartCallback = null;
+                }
+            }, 500);
+        }
+    }
+
+    function onInterstitialDismissed() {
+        if (pendingRestartCallback) {
+            pendingRestartCallback();
+            pendingRestartCallback = null;
+        }
+    }
+
+    function receiveInterstitialClosedFromAndroid() {
+        onInterstitialDismissed();
+    }
+
+    function startSpinButtonCountdown(onCompleteCallback) {
+        const btnSpin = document.getElementById('btn-spin-action');
+        let timeLeft = 15;
+        
+        btnSpin.disabled = true;
+        btnSpin.classList.add('opacity-50', 'cursor-not-allowed');
+        btnSpin.textContent = `Wait ${timeLeft}s...`;
+
+        if (spinCountdownTimer) {
+            clearInterval(spinCountdownTimer);
+        }
+
+        spinCountdownTimer = setInterval(() => {
+            timeLeft--;
+            if (timeLeft > 0) {
+                btnSpin.textContent = `Wait ${timeLeft}s...`;
+            } else {
+                clearInterval(spinCountdownTimer);
+                spinCountdownTimer = null;
+                if (spinChances > 0) {
+                    btnSpin.disabled = false;
+                    btnSpin.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnSpin.textContent = `📺 Watch Ad to Spin`;
+                } else {
+                    btnSpin.disabled = true;
+                    btnSpin.classList.add('opacity-50', 'cursor-not-allowed');
+                    btnSpin.textContent = "No Spin Chances Left, Try Again next time!";
+                }
+                if (onCompleteCallback) {
+                    onCompleteCallback();
+                }
+            }
+        }, 1000);
+    }
+
+    function triggerAdmobRewardForSpin(callback) {
+        if (spinChances <= 0) {
+            showToast("No Spin Chances Left, Try Again next time!");
+            return;
+        }
+
+        if (window.AndroidBridge && typeof window.AndroidBridge.showRewardedInterstitialAd === 'function') {
+            window.AndroidBridge.showRewardedInterstitialAd();
+        } else if (window.AndroidBridge && typeof window.AndroidBridge.watchRewardedVideoForChances === 'function') {
+            window.AndroidBridge.watchRewardedVideoForChances();
+        } else if (window.AndroidBridge && typeof window.AndroidBridge.showRewardedAd === 'function') {
+            window.AndroidBridge.showRewardedAd();
+        }
+
+        startSpinButtonCountdown(() => {
+            if (callback) {
+                callback();
+            }
+        });
+    }
+
+    function receiveChancesFromAndroid(amount) {
+        if (currentAdInterval) {
+            clearInterval(currentAdInterval);
+            currentAdInterval = null;
+        }
+        document.getElementById('screen-ad-loading').classList.add('hidden');
+
+        if (pendingAdCallback) {
+            const cb = pendingAdCallback;
+            pendingAdCallback = null;
+            cb();
+        }
+    }
+
+    function executeLuckySpin() {
+        if (isSpinning || spinChances <= 0) return;
+        isSpinning = true;
+        hasSpunWheel = true;
+        spinChances--;
+
+        const btnSpin = document.getElementById('btn-spin-action');
+        btnSpin.disabled = true;
+
+        const selectedIndex = Math.floor(Math.random() * spinSlices.length);
+        const sliceAngle = 40;
+        const targetSliceCenter = selectedIndex * sliceAngle + 20;
+
+        const extraRounds = (Math.floor(Math.random() * 3) + 5) * 360;
+        const finalDegree = currentSpinRotation + extraRounds + (360 - (currentSpinRotation % 360)) + (360 - targetSliceCenter);
+        currentSpinRotation = finalDegree;
+
+        const wheelInner = document.getElementById('spinWheelInner');
+        wheelInner.style.transform = `rotate(${finalDegree}deg)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            
+            if (spinChances <= 0) {
+                btnSpin.disabled = true;
+                btnSpin.textContent = "No Spin Chances Left, Try Again next time";
+                btnSpin.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                btnSpin.disabled = false;
+                btnSpin.textContent = `📺 Watch Ad to Spin`;
+            }
+
+            const prize = spinSlices[selectedIndex];
+            if (prize.coins > 0) {
+                totalCoins += prize.coins;
+                sessionCoins += prize.coins;
+                updateCoinsUI();
+                soundSystem.coinSound();
+                showToast(`🎉 You won ${prize.coins} Extra Coins!`);
+            } else {
+                showToast(`❌ Try Again! Better luck next spin.`);
+            }
+        }, 3200);
+    }
+
+    class SoundSystem {
+        constructor() {
+            this.enabled = true;
+            this.ctx = null;
+        }
+        init() {
+            if (!this.ctx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    this.ctx = new AudioContext();
+                }
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+        playTone(freq, type, duration, vol = 0.1) {
+            if (!this.enabled || !this.ctx) return;
+            try {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            } catch(e) {}
+        }
+        shoot() {
+            if (!this.enabled || !this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(110, now + 0.12);
+
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            } catch(e) {}
+        }
+        enemyHit() { this.playTone(200, 'sawtooth', 0.05, 0.05); }
+        explosion() {
+            if (!this.enabled || !this.ctx) return;
+            try {
+                const bufferSize = this.ctx.sampleRate * 0.3;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+                filter.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            } catch(e) {}
+        }
+        powerup() {
+            if (!this.enabled || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(now + 0.25);
+        }
+        coinSound() {
+            if (!this.enabled || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(987.77, now);
+            osc.frequency.setValueAtTime(1318.51, now + 0.08);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+        }
+        playerHit() { this.playTone(120, 'sawtooth', 0.2, 0.2); }
+        bossAppear() {
+            if (!this.enabled || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, now);
+            osc.frequency.linearRampToValueAtTime(50, now + 1.0);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start();
+            osc.stop(now + 1.0);
+        }
+    }
+
+    const soundSystem = new SoundSystem();
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('game-container');
+
+    const menuShipCanvas = document.getElementById('menuShipCanvas');
+    const menuShipCtx = menuShipCanvas.getContext('2d');
+
+    let gameState = 'MENU';
+    let username = generateUniqueUsername();
+    let totalCoins = parseInt(localStorage.getItem('neon_strike_coins') || '0');
+    let sessionCoins = 0;
+    let currentWave = 1;
+    let totalKills = 0;
+    let playerHealth = 7;
+    let maxPlayerHealth = 7;
+    let weaponLevel = 1;
+    let combo = 0;
+    let comboTimer = 0;
+    let heavyButtonCooldown = 0;
+
+    let lastTime = 0;
+    let screenShakeTime = 0;
+    let screenShakeIntensity = 0;
+
+    const input = {
+        left: false,
+        right: false,
+        touchX: null,
+        isDragging: false
+    };
+
+    let player = {
+        x: 0,
+        y: 0,
+        width: 48,
+        height: 48,
+        speed: 450,
+        targetX: 0,
+        tilt: 0,
+        shieldTimer: 0,
+        heavyWeaponTimer: 0,
+        rapidFireTimer: 0,
+        damageBoostTimer: 0,
+        tripleShotTimer: 0,
+        shootCooldown: 0
+    };
+
+    let bullets = [];
+    let enemyBullets = [];
+    let enemies = [];
+    let particles = [];
+    let smokeSpots = []; 
+    let powerups = [];
+    let coinsList = [];
+    let floatingTexts = [];
+    let stars = [];
+    let boss = null;
+
+    let waveState = 'WAITING';
+    let enemiesToSpawnCount = 0;
+    let enemySpawnTimer = 0;
+
+    function getPlayerYPosition() {
+        return canvas.height - 150;
+    }
+
+    function resizeCanvas() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight - 50;
+        if (gameState === 'MENU' || gameState === 'GAMEOVER') {
+            player.x = canvas.width / 2;
+            player.y = getPlayerYPosition();
+            player.targetX = player.x;
+        }
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function initStars() {
+        stars = [];
+        for (let i = 0; i < 70; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2 + 0.5,
+                speed: Math.random() * 80 + 20,
+                brightness: Math.random()
+            });
+        }
+    }
+
+    function renderShipOnCanvas(targetCtx, w, h) {
+        targetCtx.clearRect(0, 0, w, h);
+        targetCtx.fillStyle = 'rgba(0, 243, 255, 0.08)';
+        targetCtx.fillRect(0, 0, w, h);
+        targetCtx.save();
+        targetCtx.translate(w / 2, h / 2 + 2);
+        if (playerImg.complete && playerImg.naturalWidth !== 0) {
+            targetCtx.drawImage(playerImg, -24, -24, 48, 48);
+        }
+        targetCtx.restore();
+    }
+
+    function renderPreviews() {
+        if (gameState === 'MENU') {
+            renderShipOnCanvas(menuShipCtx, 128, 128);
+            requestAnimationFrame(renderPreviews);
+        }
+    }
+
+    function setupInputs() {
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+
+        const bindButton = (el, prop) => {
+            el.addEventListener('pointerdown', (e) => { e.preventDefault(); input[prop] = true; });
+            el.addEventListener('pointerup', (e) => { e.preventDefault(); input[prop] = false; });
+            el.addEventListener('pointercancel', (e) => { e.preventDefault(); input[prop] = false; });
+            el.addEventListener('pointerleave', (e) => { e.preventDefault(); input[prop] = false; });
+        };
+        bindButton(btnLeft, 'left');
+        bindButton(btnRight, 'right');
+
+        canvas.addEventListener('pointerdown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            input.isDragging = true;
+            input.touchX = e.clientX;
+            player.targetX = e.clientX;
+        });
+        canvas.addEventListener('pointermove', (e) => {
+            if (!input.isDragging || gameState !== 'PLAYING') return;
+            input.touchX = e.clientX;
+            player.targetX = e.clientX;
+        });
+        canvas.addEventListener('pointerup', () => { input.isDragging = false; });
+        canvas.addEventListener('pointercancel', () => { input.isDragging = false; });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') input.left = true;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') input.right = true;
+            if (e.key === 'Escape' && gameState === 'PLAYING') pauseGame();
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') input.left = false;
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') input.right = false;
+        });
+    }
+
+    function spawnParticles(x, y, color, count = 10, speedMult = 1) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = (Math.random() * 120 + 40) * speedMult;
+            particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color,
+                size: Math.random() * 3 + 1,
+                alpha: 1,
+                decay: Math.random() * 1.5 + 0.8
+            });
+        }
+    }
+
+    function spawnSmokeSpots(x, y, count = 4) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 30 + 10;
+            smokeSpots.push({
+                x: x + (Math.random() * 16 - 8),
+                y: y + (Math.random() * 16 - 8),
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 15,
+                size: Math.random() * 6 + 4,
+                maxSize: Math.random() * 14 + 10,
+                alpha: 0.6,
+                decay: Math.random() * 0.8 + 0.4
+            });
+        }
+    }
+
+    function addFloatingText(text, x, y, color = '#00f3ff') {
+        floatingTexts.push({
+            text, x, y,
+            vy: -50,
+            alpha: 1,
+            color
+        });
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.style.opacity = '1';
+        setTimeout(() => {
+            toast.style.opacity = '0';
+        }, 2000);
+    }
+
+    function triggerScreenShake(duration, intensity) {
+        screenShakeTime = duration;
+        screenShakeIntensity = intensity;
+    }
+
+    function fetchJackpotData() {
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL")) return;
+
+        fetch(GOOGLE_SCRIPT_URL)
+            .then(res => res.json())
+            .then(data => {
+                if (data.jackpotTitle) {
+                    jackpotTitle = data.jackpotTitle;
+                    document.getElementById('jp-modal-title').textContent = data.jackpotTitle;
+                }
+
+                if (data.nextLuckyDrawTitle) {
+                    nextLuckyDrawTitle = data.nextLuckyDrawTitle;
+                    document.getElementById('jp-modal-title-2').textContent = data.nextLuckyDrawTitle;
+                }
+                
+                if (data.winnerResultTitle) {
+                    winnerResultTitle = data.winnerResultTitle;
+                    document.getElementById('jp-winners-section-title').textContent = data.winnerResultTitle;
+                }
+                if (data.prizeAmount) {
+                    jackpotPrizeAmount = data.prizeAmount;
+                    document.getElementById('jp-prize-amount').textContent = `Rs ${data.prizeAmount}`;
+                }
+                if (data.participatingFee) {
+                    jackpotParticipatingFee = parseInt(data.participatingFee);
+                    document.getElementById('jp-fee-amount').textContent = `${jackpotParticipatingFee} Coins`;
+                }
+                
+                const winnersContainer = document.getElementById('winners-list-container');
+                winnersContainer.innerHTML = '';
+                if (data.winners && data.winners.length > 0) {
+                    data.winners.forEach(w => {
+                        const card = document.createElement('div');
+                        card.className = 'bg-white/5 border border-white/10 rounded-xl p-2.5 flex flex-col gap-1 text-xs';
+                        card.innerHTML = `
+                            <div class="flex justify-between font-bold text-yellow-300">
+                                <span>👤 ${w.name} (${w.city})</span>
+                                <span>Rs ${w.prize}</span>
+                            </div>
+                            <div class="flex justify-between text-[10px] text-gray-400">
+                                <span>Txn: ${w.txnId}</span>
+                                <span>📞 ${w.phone}</span>
+                            </div>
+                        `;
+                        winnersContainer.appendChild(card);
+                    });
+                } else {
+                    winnersContainer.innerHTML = '<div class="text-xs text-gray-500 italic text-center py-2">Loading Winners...</div>';
+                }
+                
+                checkJackpotLockConditions();
+            })
+            .catch(err => {
+                console.error("Error fetching Jackpot data:", err);
+            });
+    }
+
+    function checkJackpotLockConditions() {
+        const today = new Date();
+        const isFriday = (today.getDay() === 5);
+        const hasEnoughCoins = (totalCoins >= jackpotParticipatingFee);
+        const btnParticipate = document.getElementById('btn-participate-now');
+        const lockReasonEl = document.getElementById('jp-lock-reason');
+
+        let lockReasons = [];
+
+        if (hasEnoughCoins && !isFriday) {
+            isParticipateLocked = false;
+            btnParticipate.disabled = false;
+            btnParticipate.classList.remove('opacity-50', 'cursor-not-allowed');
+            lockReasonEl.innerHTML = "Registration is open for this Lucky Draw before Friday";
+            lockReasonEl.classList.remove('hidden');
+            return;
+        }
+
+        if (!hasEnoughCoins) {
+            lockReasons.push(`• Insufficient Coins (Requires ${jackpotParticipatingFee} 🪙)`);
+        }
+        if (isFriday) {
+            lockReasons.push(`• Registration is currently closed. Please try again tomorrow to participate in the next lucky draw.`);
+        }
+
+        if (lockReasons.length > 0) {
+            isParticipateLocked = true;
+            btnParticipate.disabled = true;
+            btnParticipate.classList.add('opacity-50', 'cursor-not-allowed');
+            lockReasonEl.innerHTML = lockReasons.join('<br>');
+            lockReasonEl.classList.remove('hidden');
+        } else {
+            isParticipateLocked = false;
+            btnParticipate.disabled = false;
+            btnParticipate.classList.remove('opacity-50', 'cursor-not-allowed');
+            lockReasonEl.classList.add('hidden');
+        }
+    }
+
+    function openJackpotModal() {
+        checkJackpotLockConditions();
+        fetchJackpotData();
+        document.getElementById('screen-jackpot-modal').classList.remove('hidden');
+    }
+
+    function sendJackpotRequest() {
+        const name = document.getElementById('jp-input-name').value.trim();
+        const city = document.getElementById('jp-input-city').value.trim();
+        const phone = document.getElementById('jp-input-phone').value.trim();
+
+        if (!name || !city || !phone) {
+            showToast("Please fill in all details!");
+            return;
+        }
+
+        if (totalCoins < jackpotParticipatingFee) {
+            showToast("Insufficient coins to participate!");
+            return;
+        }
+
+        const btnSend = document.getElementById('btn-send-request');
+        btnSend.disabled = true;
+        btnSend.textContent = "Sending...";
+
+        const payload = {
+            username: username,
+            name: name,
+            city: city,
+            phone: phone
+        };
+
+        if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL")) {
+            totalCoins -= jackpotParticipatingFee;
+            updateCoinsUI();
+            showToast("🎉 Successfully Registered for Jackpot!");
+            document.getElementById('screen-participate-form').classList.add('hidden');
+            document.getElementById('screen-jackpot-modal').classList.add('hidden');
+            btnSend.disabled = false;
+            btnSend.textContent = "Send Request";
+            return;
+        }
+
+        fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(() => {
+            totalCoins -= jackpotParticipatingFee;
+            updateCoinsUI();
+            showToast("🎉 Successfully Registered for Jackpot!");
+            document.getElementById('screen-participate-form').classList.add('hidden');
+            document.getElementById('screen-jackpot-modal').classList.add('hidden');
+            btnSend.disabled = false;
+            btnSend.textContent = "Send Request";
+        })
+        .catch(err => {
+            showToast("Failed to submit request.");
+            btnSend.disabled = false;
+            btnSend.textContent = "Send Request";
+        });
+    }
+
+    function startGame() {
+        soundSystem.init();
+        sessionCoins = 0;
+        currentWave = 1;
+        totalKills = 0;
+
+        playerHealth = 7;
+        maxPlayerHealth = 7;
+
+        weaponLevel = 1;
+        combo = 0;
+        comboTimer = 0;
+        heavyButtonCooldown = 0;
+
+        bullets = [];
+        enemyBullets = [];
+        enemies = [];
+        particles = [];
+        smokeSpots = [];
+        powerups = [];
+        coinsList = [];
+        floatingTexts = [];
+        boss = null;
+
+        resizeCanvas();
+        player.x = canvas.width / 2;
+        player.y = getPlayerYPosition();
+        player.targetX = player.x;
+        player.shieldTimer = 0;
+        player.heavyWeaponTimer = 0;
+        player.rapidFireTimer = 0;
+        player.damageBoostTimer = 0;
+        player.tripleShotTimer = 0;
+
+        document.getElementById('screen-dashboard').classList.add('hidden');
+        document.getElementById('screen-gameover').classList.add('hidden');
+        document.getElementById('screen-pause').classList.add('hidden');
+        document.getElementById('screen-spin-modal').classList.add('hidden');
+        document.getElementById('hud').classList.remove('hidden');
+        document.getElementById('controls-overlay').classList.remove('hidden');
+
+        gameState = 'PLAYING';
+        updateHealthUI();
+        updateCoinsUI();
+        updateAbilityButtonsUI();
+        startWave(currentWave);
+    }
+
+    function startWave(waveNum) {
+        currentWave = waveNum;
+        showWaveBanner(`WAVE ${currentWave}`, currentWave % 10 === 0 ? 'WARNING: BOSS APPROACHING' : 'PREPARE FOR BATTLE');
+
+        if (currentWave % 10 === 0) {
+            const bossHp = Math.floor(500 + (currentWave * 50));
+            boss = {
+                x: canvas.width / 2,
+                y: 100,
+                width: 120,
+                height: 80,
+                maxHp: bossHp,
+                hp: bossHp,
+                vx: 100,
+                attackTimer: 0,
+                phase: 1
+            };
+            soundSystem.bossAppear();
+            waveState = 'FIGHTING';
+        } else {
+            waveState = 'SPAWNING';
+            enemiesToSpawnCount = 4 + (currentWave * 2);
+            enemySpawnTimer = 0;
+        }
+    }
+
+    function showWaveBanner(title, subtitle) {
+        const banner = document.getElementById('wave-banner');
+        document.getElementById('wave-banner-title').textContent = title;
+        document.getElementById('wave-banner-sub').textContent = subtitle;
+        banner.style.opacity = '1';
+        setTimeout(() => {
+            banner.style.opacity = '0';
+        }, 2000);
+    }
+
+    function spawnEnemy() {
+        if (enemiesToSpawnCount <= 0) return;
+        enemiesToSpawnCount--;
+
+        let types = ['basic'];
+        if (currentWave >= 3) types.push('fast');
+        if (currentWave >= 4) types.push('zigzag');
+        if (currentWave >= 5) types.push('shooter');
+        if (currentWave >= 6) types.push('tank');
+        if (currentWave >= 8) types.push('elite');
+
+        const type = types[Math.floor(Math.random() * types.length)];
+
+        let hp = 1;
+        let speed = 100;
+        let width = 38;
+        let height = 38;
+        let color = '#ff0055';
+
+        switch(type) {
+            case 'fast': speed = 220; hp = 1; width = 30; height = 30; color = '#ffaa00'; break;
+            case 'zigzag': speed = 120; hp = 2; width = 36; height = 36; color = '#a020f0'; break;
+            case 'shooter': speed = 80; hp = 3; width = 42; height = 42; color = '#00ffcc'; break;
+            case 'tank': speed = 50; hp = 8; width = 58; height = 58; color = '#ff3300'; break;
+            case 'elite': speed = 160; hp = 5; width = 46; height = 46; color = '#ffff00'; break;
+            default: speed = 100; hp = 1; width = 38; height = 38; color = '#ff0055'; break;
+        }
+
+        enemies.push({
+            x: Math.random() * (canvas.width - width * 2) + width,
+            y: -50,
+            width, height,
+            vx: 0,
+            vy: speed,
+            hp,
+            maxHp: hp,
+            type,
+            color,
+            shootTimer: Math.random() * 2,
+            angleOffset: Math.random() * Math.PI
+        });
+    }
+
+    function spawnPowerup(x, y) {
+        if (Math.random() > 0.3) return;
+        const types = ['health', 'rapid', 'damage', 'triple', 'shield'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        powerups.push({
+            x, y,
+            width: 32, height: 32,
+            vy: 90,
+            type
+        });
+    }
+
+    function spawnCoin(x, y, count = 1) {
+        for (let i = 0; i < count; i++) {
+            coinsList.push({
+                x: x + (Math.random() * 20 - 10),
+                y: y + (Math.random() * 20 - 10),
+                width: 24,
+                height: 24,
+                vy: 110,
+                value: 1
+            });
+        }
+    }
+
+    function update(dt) {
+        if (gameState !== 'PLAYING') return;
+
+        if (heavyButtonCooldown > 0) {
+            heavyButtonCooldown -= dt;
+            if (heavyButtonCooldown <= 0) heavyButtonCooldown = 0;
+        }
+        updateAbilityButtonsUI();
+
+        if (screenShakeTime > 0) {
+            screenShakeTime -= dt;
+        }
+
+        if (combo > 0) {
+            comboTimer -= dt;
+            if (comboTimer <= 0) {
+                combo = 0;
+                document.getElementById('combo-hud').style.opacity = '0';
+            }
+        }
+
+        if (player.shieldTimer > 0) player.shieldTimer -= dt;
+        if (player.heavyWeaponTimer > 0) player.heavyWeaponTimer -= dt;
+        if (player.rapidFireTimer > 0) player.rapidFireTimer -= dt;
+        if (player.damageBoostTimer > 0) player.damageBoostTimer -= dt;
+        if (player.tripleShotTimer > 0) player.tripleShotTimer -= dt;
+
+        player.y = getPlayerYPosition();
+
+        let moveDir = 0;
+        if (input.left) moveDir = -1;
+        if (input.right) moveDir = 1;
+
+        if (input.isDragging && input.touchX !== null) {
+            const dx = input.touchX - player.x;
+            player.x += dx * 15 * dt;
+        } else if (moveDir !== 0) {
+            player.x += moveDir * player.speed * dt;
+        }
+
+        const halfW = player.width / 2;
+        if (player.x < halfW) player.x = halfW;
+        if (player.x > canvas.width - halfW) player.x = canvas.width - halfW;
+
+        const targetTilt = moveDir * 0.25 || (input.isDragging ? (player.targetX > player.x ? 0.2 : -0.2) : 0);
+        player.tilt += (targetTilt - player.tilt) * 15 * dt;
+
+        player.shootCooldown -= dt;
+        const isHeavy = player.heavyWeaponTimer > 0;
+        const fireInterval = isHeavy ? 0.05 : (player.rapidFireTimer > 0 ? 0.08 : 0.18);
+
+        if (player.shootCooldown <= 0) {
+            player.shootCooldown = fireInterval;
+            soundSystem.shoot();
+
+            const dmg = (isHeavy || player.damageBoostTimer > 0) ? 3 : 1;
+            const isTriple = isHeavy || player.tripleShotTimer > 0 || weaponLevel >= 4;
+            const isDouble = weaponLevel === 3;
+
+            if (isTriple) {
+                bullets.push({ x: player.x, y: player.y - 20, vx: 0, vy: -850, damage: dmg });
+                bullets.push({ x: player.x - 14, y: player.y - 10, vx: -160, vy: -800, damage: dmg });
+                bullets.push({ x: player.x + 14, y: player.y - 10, vx: 160, vy: -800, damage: dmg });
+                if (isHeavy) {
+                    bullets.push({ x: player.x - 22, y: player.y - 5, vx: -280, vy: -750, damage: dmg });
+                    bullets.push({ x: player.x + 22, y: player.y - 5, vx: 280, vy: -750, damage: dmg });
+                }
+            } else if (isDouble) {
+                bullets.push({ x: player.x - 10, y: player.y - 15, vx: 0, vy: -800, damage: dmg });
+                bullets.push({ x: player.x + 10, y: player.y - 15, vx: 0, vy: -800, damage: dmg });
+            } else {
+                bullets.push({ x: player.x, y: player.y - 20, vx: 0, vy: -800, damage: dmg });
+            }
+        }
+
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            let b = bullets[i];
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+            if (b.y < -20 || b.x < 0 || b.x > canvas.width) {
+                bullets.splice(i, 1);
+            }
+        }
+
+        for (let i = enemyBullets.length - 1; i >= 0; i--) {
+            let eb = enemyBullets[i];
+            eb.x += eb.vx * dt;
+            eb.y += eb.vy * dt;
+            if (eb.y > canvas.height + 20 || eb.x < -20 || eb.x > canvas.width + 20) {
+                enemyBullets.splice(i, 1);
+                continue;
+            }
+
+            if (player.shieldTimer <= 0) {
+                const dist = Math.hypot(eb.x - player.x, eb.y - player.y);
+                if (dist < player.width / 2 + eb.radius) {
+                    enemyBullets.splice(i, 1);
+                    playerHealth--;
+                    soundSystem.playerHit();
+                    triggerScreenShake(0.2, 10);
+                    spawnParticles(player.x, player.y, '#ff0055', 15);
+                    combo = 0;
+                    document.getElementById('combo-hud').style.opacity = '0';
+                    updateHealthUI();
+                    if (playerHealth <= 0) gameOver();
+                    break;
+                }
+            }
+        }
+
+        if (waveState === 'SPAWNING') {
+            enemySpawnTimer += dt;
+            if (enemySpawnTimer >= 0.5) {
+                enemySpawnTimer = 0;
+                spawnEnemy();
+                if (enemiesToSpawnCount <= 0) {
+                    waveState = 'FIGHTING';
+                }
+            }
+        }
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let en = enemies[i];
+            en.y += en.vy * dt;
+
+            if (en.type === 'zigzag') {
+                en.x += Math.sin(en.y * 0.03 + en.angleOffset) * 150 * dt;
+            } else if (en.type === 'fast') {
+                en.x += Math.sin(en.y * 0.05) * 60 * dt;
+            }
+
+            if (en.type === 'shooter' || en.type === 'tank' || en.type === 'elite') {
+                en.shootTimer -= dt;
+                if (en.shootTimer <= 0) {
+                    en.shootTimer = Math.random() * 1.5 + 1.5;
+                    const angle = Math.atan2(player.y - en.y, player.x - en.x);
+                    enemyBullets.push({
+                        x: en.x, y: en.y,
+                        vx: Math.cos(angle) * 300,
+                        vy: Math.sin(angle) * 300,
+                        radius: 6
+                    });
+                }
+            }
+
+            if (en.y > canvas.height + 50) {
+                enemies.splice(i, 1);
+                continue;
+            }
+
+            if (player.shieldTimer <= 0) {
+                const dist = Math.hypot(en.x - player.x, en.y - player.y);
+                if (dist < (player.width / 2 + en.width / 2) * 0.75) {
+                    enemies.splice(i, 1);
+                    playerHealth--;
+                    soundSystem.playerHit();
+                    triggerScreenShake(0.3, 12);
+                    spawnParticles(en.x, en.y, '#ff0055', 20);
+                    spawnSmokeSpots(en.x, en.y, 3);
+                    combo = 0;
+                    document.getElementById('combo-hud').style.opacity = '0';
+                    updateHealthUI();
+                    if (playerHealth <= 0) gameOver();
+                    continue;
+                }
+            }
+        }
+
+        if (boss) {
+            boss.x += boss.vx * dt;
+            if (boss.x < 80 || boss.x > canvas.width - 80) {
+                boss.vx *= -1;
+            }
+            boss.attackTimer += dt;
+            if (boss.attackTimer >= 1.2) {
+                boss.attackTimer = 0;
+                for (let a = -2; a <= 2; a++) {
+                    const angle = Math.PI / 2 + a * 0.25;
+                    enemyBullets.push({
+                        x: boss.x, y: boss.y + 30,
+                        vx: Math.cos(angle) * 260,
+                        vy: Math.sin(angle) * 260,
+                        radius: 7
+                    });
+                }
+            }
+
+            const hpPercent = Math.max(0, (boss.hp / boss.maxHp) * 100);
+            document.getElementById('boss-hud').classList.remove('hidden');
+            document.getElementById('boss-hp-bar').style.width = hpPercent + '%';
+            document.getElementById('boss-hp-text').textContent = Math.ceil(hpPercent) + '%';
+        } else {
+            document.getElementById('boss-hud').classList.add('hidden');
+        }
+
+        for (let bIdx = bullets.length - 1; bIdx >= 0; bIdx--) {
+            let b = bullets[bIdx];
+            let hit = false;
+
+            if (boss) {
+                if (Math.abs(b.x - boss.x) < boss.width / 2 && Math.abs(b.y - boss.y) < boss.height / 2) {
+                    boss.hp -= b.damage;
+                    hit = true;
+                    soundSystem.enemyHit();
+                    spawnParticles(b.x, b.y, '#00f3ff', 5, 0.5);
+                    if (boss.hp <= 0) {
+                        soundSystem.explosion();
+                        triggerScreenShake(0.5, 20);
+                        spawnParticles(boss.x, boss.y, '#ffaa00', 60, 2);
+                        spawnSmokeSpots(boss.x, boss.y, 8);
+                        addFloatingText('BOSS DEFEATED', boss.x, boss.y, '#ffff00');
+                        totalKills++;
+                        spawnPowerup(boss.x, boss.y);
+                        spawnCoin(boss.x, boss.y, 10);
+                        
+                        boss = null;
+                        document.getElementById('boss-hud').classList.add('hidden');
+
+                        playerHealth = maxPlayerHealth;
+                        updateHealthUI();
+                        showToast('Boss Defeated! Health Restored.');
+                        startWave(currentWave + 1);
+                    }
+                }
+            }
+
+            if (hit) {
+                bullets.splice(bIdx, 1);
+                continue;
+            }
+
+            for (let eIdx = enemies.length - 1; eIdx >= 0; eIdx--) {
+                let en = enemies[eIdx];
+                const dist = Math.hypot(b.x - en.x, b.y - en.y);
+                if (dist < en.width / 2 + 8) {
+                    en.hp -= b.damage;
+                    hit = true;
+                    soundSystem.enemyHit();
+                    spawnParticles(b.x, b.y, en.color, 4, 0.5);
+
+                    if (en.hp <= 0) {
+                        soundSystem.explosion();
+                        spawnParticles(en.x, en.y, en.color, 15);
+                        spawnSmokeSpots(en.x, en.y, 4);
+                        totalKills++;
+                        combo++;
+                        comboTimer = 3.0;
+
+                        if (combo > 1) {
+                            const comboEl = document.getElementById('combo-hud');
+                            document.getElementById('combo-text').textContent = `COMBO x${combo}`;
+                            comboEl.style.opacity = '1';
+                        }
+
+                        spawnPowerup(en.x, en.y);
+                        spawnCoin(en.x, en.y, 1);
+                        enemies.splice(eIdx, 1);
+                    }
+                    break;
+                }
+            }
+
+            if (hit) {
+                bullets.splice(bIdx, 1);
+            }
+        }
+
+        if (waveState === 'FIGHTING' && enemies.length === 0 && enemiesToSpawnCount <= 0 && !boss) {
+            startWave(currentWave + 1);
+        }
+
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            let p = powerups[i];
+            p.y += p.vy * dt;
+            if (p.y > canvas.height + 30) {
+                powerups.splice(i, 1);
+                continue;
+            }
+
+            const dist = Math.hypot(p.x - player.x, p.y - player.y);
+            if (dist < player.width / 2 + p.width / 2) {
+                soundSystem.powerup();
+                applyPowerup(p.type);
+                powerups.splice(i, 1);
+            }
+        }
+
+        for (let i = coinsList.length - 1; i >= 0; i--) {
+            let c = coinsList[i];
+            c.y += c.vy * dt;
+            if (c.y > canvas.height + 30) {
+                coinsList.splice(i, 1);
+                continue;
+            }
+
+            const dist = Math.hypot(c.x - player.x, c.y - player.y);
+            if (dist < player.width / 2 + c.width / 2) {
+                soundSystem.coinSound();
+                sessionCoins += c.value;
+                totalCoins += c.value;
+                updateCoinsUI();
+                addFloatingText('+1 🪙', c.x, c.y - 20, '#ffd700');
+                coinsList.splice(i, 1);
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let pt = particles[i];
+            pt.x += pt.vx * dt;
+            pt.y += pt.vy * dt;
+            pt.alpha -= pt.decay * dt;
+            if (pt.alpha <= 0) particles.splice(i, 1);
+        }
+
+        for (let i = smokeSpots.length - 1; i >= 0; i--) {
+            let s = smokeSpots[i];
+            s.x += s.vx * dt;
+            s.y += s.vy * dt;
+            s.size += (s.maxSize - s.size) * 3.0 * dt;
+            s.alpha -= s.decay * dt;
+            if (s.alpha <= 0) smokeSpots.splice(i, 1);
+        }
+
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ft.y += ft.vy * dt;
+            ft.alpha -= 0.8 * dt;
+            if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+        }
+
+        for (let s of stars) {
+            s.y += s.speed * dt;
+            if (s.y > canvas.height) {
+                s.y = 0;
+                s.x = Math.random() * canvas.width;
+            }
+        }
+    }
+
+    function applyPowerup(type) {
+        switch(type) {
+            case 'health':
+                if (playerHealth < maxPlayerHealth) playerHealth++;
+                updateHealthUI();
+                addFloatingText('❤ HEALTH +1', player.x, player.y - 30, '#ffffff');
+                break;
+            case 'rapid':
+                player.rapidFireTimer = 8.0;
+                addFloatingText('⚡ RAPID FIRE', player.x, player.y - 30, '#00ffff');
+                break;
+            case 'damage':
+                player.damageBoostTimer = 8.0;
+                addFloatingText('💥 DAMAGE BOOST', player.x, player.y - 30, '#ffaa00');
+                break;
+            case 'triple':
+                player.tripleShotTimer = 8.0;
+                addFloatingText('🔫 TRIPLE SHOT', player.x, player.y - 30, '#a020f0');
+                break;
+            case 'shield':
+                player.shieldTimer = 6.0;
+                updateAbilityButtonsUI();
+                addFloatingText('🛡 SHIELD ON', player.x, player.y - 30, '#00ff55');
+                break;
+        }
+    }
+
+    function updateHealthUI() {
+        const containerEl = document.getElementById('hud-health-bars');
+        containerEl.innerHTML = '';
+        for (let i = 0; i < maxPlayerHealth; i++) {
+            const heart = document.createElement('div');
+            heart.className = `text-base text-white transition-all duration-200 ${i < playerHealth ? 'opacity-100 scale-110 drop-shadow-[0_0_8px_#ffffff]' : 'opacity-30 grayscale'}`;
+            heart.innerHTML = '❤';
+            containerEl.appendChild(heart);
+        }
+    }
+
+    function updateCoinsUI() {
+        document.getElementById('hud-coins').textContent = `🪙 ${totalCoins}`;
+        document.getElementById('dash-coins').textContent = `🪙 ${totalCoins}`;
+        document.getElementById('go-coins-val').textContent = totalCoins;
+        localStorage.setItem('neon_strike_coins', totalCoins);
+    }
+
+    function updateAbilityButtonsUI() {
+        const heavyBtn = document.getElementById('btn-floating-heavy');
+        const heavyText = document.getElementById('heavy-btn-text');
+
+        if (gameState === 'PLAYING') {
+            if (player.heavyWeaponTimer <= 0) {
+                heavyBtn.classList.remove('hidden');
+                if (heavyButtonCooldown > 0) {
+                    heavyBtn.disabled = true;
+                    heavyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    heavyText.textContent = `Heavy (${Math.ceil(heavyButtonCooldown)}s)`;
+                } else {
+                    heavyBtn.disabled = false;
+                    heavyBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    heavyText.innerHTML = 'Get Heavy Gun<br>(50🪙)';
+                }
+            } else {
+                heavyBtn.classList.add('hidden');
+            }
+        } else {
+            heavyBtn.classList.add('hidden');
+        }
+    }
+
+    function buyHeavyWeaponWithCoins() {
+        const cost = 50;
+        if (totalCoins >= cost) {
+            totalCoins -= cost;
+            updateCoinsUI();
+            player.heavyWeaponTimer = 30.0;
+            heavyButtonCooldown = 12.0;
+            updateAbilityButtonsUI();
+            soundSystem.powerup();
+            addFloatingText('🔥 HEAVY WEAPON ON!', player.x, player.y - 30, '#ff3300');
+        } else {
+            addFloatingText('❌ NOT ENOUGH COINS', player.x, player.y - 30, '#ff3300');
+            soundSystem.playerHit();
+        }
+    }
+
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        soundSystem.explosion();
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-overlay').classList.add('hidden');
+        document.getElementById('boss-hud').classList.add('hidden');
+        document.getElementById('combo-hud').style.opacity = '0';
+
+        updateCoinsUI();
+
+        document.getElementById('screen-gameover').classList.remove('hidden');
+    }
+
+    function pauseGame() {
+        gameState = 'PAUSED';
+        document.getElementById('screen-pause').classList.remove('hidden');
+    }
+
+    function resumeGame() {
+        gameState = 'PLAYING';
+        document.getElementById('screen-pause').classList.add('hidden');
+        updateHealthUI();
+        updateAbilityButtonsUI();
+    }
+
+    function quitToDashboard() {
+        document.getElementById('screen-pause').classList.add('hidden');
+        document.getElementById('screen-gameover').classList.add('hidden');
+        document.getElementById('hud').classList.add('hidden');
+        document.getElementById('controls-overlay').classList.add('hidden');
+        document.getElementById('boss-hud').classList.add('hidden');
+        document.getElementById('screen-dashboard').classList.remove('hidden');
+        gameState = 'MENU';
+        updateCoinsUI();
+        requestAnimationFrame(renderPreviews);
+    }
+
+    function render() {
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (screenShakeTime > 0) {
+            const offsetX = (Math.random() - 0.5) * screenShakeIntensity;
+            const offsetY = (Math.random() - 0.5) * screenShakeIntensity;
+            ctx.translate(offsetX, offsetY);
+        }
+
+        for (let s of stars) {
+            ctx.fillStyle = `rgba(255, 255, 255, ${s.brightness})`;
+            ctx.fillRect(s.x, s.y, s.size, s.size);
+        }
+
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.04)';
+        ctx.lineWidth = 1;
+        const time = Date.now() * 0.05;
+        const gridSize = 40;
+        const gridOffset = time % gridSize;
+        for (let x = 0; x < canvas.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = gridOffset; y < canvas.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+
+        for (let p of powerups) {
+            ctx.save();
+            ctx.fillStyle = '#141824';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 2;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            let emoji = '❤';
+            if (p.type === 'health') {
+                emoji = '❤';
+                ctx.fillStyle = '#ffffff';
+            }
+            else if (p.type === 'rapid') emoji = '⚡';
+            else if (p.type === 'damage') emoji = '💥';
+            else if (p.type === 'triple') emoji = '🔫';
+            else if (p.type === 'shield') emoji = '🛡';
+
+            ctx.fillText(emoji, p.x, p.y);
+            ctx.restore();
+        }
+
+        for (let c of coinsList) {
+            ctx.save();
+            ctx.fillStyle = '#1f1b0a';
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetY = 2;
+
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, c.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🪙', c.x, c.y);
+            ctx.restore();
+        }
+
+        for (let eb of enemyBullets) {
+            ctx.save();
+            ctx.fillStyle = '#ff0055';
+            ctx.shadowColor = '#ff0055';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        for (let en of enemies) {
+            ctx.save();
+            ctx.translate(en.x, en.y);
+            ctx.rotate(Math.PI);
+
+            if (enemyImg.complete && enemyImg.naturalWidth !== 0) {
+                ctx.shadowColor = en.color;
+                ctx.shadowBlur = 10;
+                ctx.drawImage(enemyImg, -en.width / 2, -en.height / 2, en.width, en.height);
+            } else {
+                ctx.fillStyle = en.color;
+                ctx.fillRect(-en.width / 2, -en.height / 2, en.width, en.height);
+            }
+
+            ctx.restore();
+        }
+
+        if (boss) {
+            ctx.save();
+            ctx.translate(boss.x, boss.y);
+
+            if (bossImg.complete && bossImg.naturalWidth !== 0) {
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 20;
+                ctx.drawImage(bossImg, -boss.width / 2, -boss.height / 2, boss.width, boss.height);
+            } else {
+                ctx.fillStyle = '#ff3300';
+                ctx.fillRect(-boss.width / 2, -boss.height / 2, boss.width, boss.height);
+            }
+
+            ctx.restore();
+        }
+
+        for (let b of bullets) {
+            ctx.save();
+            const isHeavyActive = player.heavyWeaponTimer > 0;
+            const primaryColor = isHeavyActive ? '#ff4500' : '#00ffff';
+            const coreColor = isHeavyActive ? '#ffff00' : '#ffffff';
+
+            ctx.shadowColor = primaryColor;
+            ctx.shadowBlur = 14;
+
+            ctx.fillStyle = primaryColor;
+            ctx.beginPath();
+            ctx.roundRect(b.x - 3.5, b.y - 12, 7, 24, 3.5);
+            ctx.fill();
+
+            ctx.fillStyle = coreColor;
+            ctx.beginPath();
+            ctx.roundRect(b.x - 1.5, b.y - 9, 3, 18, 1.5);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(player.tilt);
+
+        if (player.shieldTimer > 0) {
+            ctx.strokeStyle = '#00ff55';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00ff55';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(0, 0, player.width * 0.8, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        if (player.heavyWeaponTimer > 0) {
+            ctx.strokeStyle = '#ff3300';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#ff3300';
+            ctx.shadowBlur = 18;
+            ctx.beginPath();
+            ctx.arc(0, 0, player.width * 0.95, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        if (playerImg.complete && playerImg.naturalWidth !== 0) {
+            ctx.shadowColor = player.heavyWeaponTimer > 0 ? '#ff3300' : '#00f3ff';
+            ctx.shadowBlur = 15;
+            ctx.drawImage(playerImg, -player.width / 2, -player.height / 2, player.width, player.height);
+        } else {
+            ctx.fillStyle = '#00f3ff';
+            ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+        }
+
+        ctx.restore();
+
+        for (let pt of particles) {
+            ctx.save();
+            ctx.globalAlpha = pt.alpha;
+            ctx.fillStyle = pt.color;
+            ctx.shadowColor = pt.color;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        for (let s of smokeSpots) {
+            ctx.save();
+            ctx.globalAlpha = s.alpha * 0.5;
+            ctx.fillStyle = '#888888';
+            ctx.shadowColor = '#aaaaaa';
+            ctx.shadowBlur = 4;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        for (let ft of floatingTexts) {
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.fillStyle = ft.color;
+            ctx.font = 'bold 14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = ft.color;
+            ctx.shadowBlur = 8;
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    function loop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+        lastTime = timestamp;
+
+        if (gameState === 'PLAYING') {
+            update(dt);
+            render();
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    function initUI() {
+        document.getElementById('dash-username').textContent = `@${username}`;
+        document.getElementById('screen-dashboard').classList.remove('hidden');
+        gameState = 'MENU';
+        updateCoinsUI();
+        requestAnimationFrame(renderPreviews);
+
+        document.getElementById('btn-floating-close').addEventListener('click', () => {
+            pauseGame();
+        });
+
+        document.getElementById('btn-jackpot-option').addEventListener('click', () => {
+            openJackpotModal();
+        });
+
+        document.getElementById('btn-jackpot-bottom-close').addEventListener('click', () => {
+            document.getElementById('screen-jackpot-modal').classList.add('hidden');
+        });
+
+        document.getElementById('btn-participate-now').addEventListener('click', () => {
+            if (isParticipateLocked) return;
+            document.getElementById('jp-input-name').value = '';
+            document.getElementById('jp-input-city').value = '';
+            document.getElementById('jp-input-phone').value = '';
+            document.getElementById('screen-participate-form').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-form-close').addEventListener('click', () => {
+            document.getElementById('screen-participate-form').classList.add('hidden');
+        });
+
+        document.getElementById('btn-send-request').addEventListener('click', () => {
+            sendJackpotRequest();
+        });
+
+        document.getElementById('btn-floating-heavy').addEventListener('click', () => {
+            if (heavyButtonCooldown > 0 || gameState !== 'PLAYING' || player.heavyWeaponTimer > 0) return;
+            buyHeavyWeaponWithCoins();
+        });
+
+        document.getElementById('btn-play').addEventListener('click', () => {
+            startGame();
+        });
+
+        document.getElementById('btn-get-extra-coins').addEventListener('click', () => {
+            spinChances = 1;
+            hasSpunWheel = false;
+            const btnSpin = document.getElementById('btn-spin-action');
+            if (spinCountdownTimer) {
+                clearInterval(spinCountdownTimer);
+                spinCountdownTimer = null;
+            }
+            btnSpin.disabled = false;
+            btnSpin.textContent = `📺 Watch Ad to Spin`;
+            btnSpin.classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('screen-spin-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-spin-close').addEventListener('click', () => {
+            if (spinCountdownTimer) {
+                clearInterval(spinCountdownTimer);
+                spinCountdownTimer = null;
+            }
+            document.getElementById('screen-spin-modal').classList.add('hidden');
+            
+            if (hasSpunWheel) {
+                quitToDashboard();
+            } else {
+                document.getElementById('screen-gameover').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('btn-spin-action').addEventListener('click', () => {
+            triggerAdmobRewardForSpin(() => {
+                executeLuckySpin();
+            });
+        });
+
+        document.getElementById('btn-instructions').addEventListener('click', () => {
+            document.getElementById('screen-instructions').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-back-menu').addEventListener('click', () => {
+            document.getElementById('screen-instructions').classList.add('hidden');
+        });
+
+        document.getElementById('btn-sound').addEventListener('click', () => {
+            soundSystem.enabled = !soundSystem.enabled;
+            document.getElementById('btn-sound').textContent = `SOUND: ${soundSystem.enabled ? 'ON' : 'OFF'}`;
+        });
+
+        document.getElementById('btn-resume').addEventListener('click', () => {
+            resumeGame();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            document.getElementById('screen-pause').classList.add('hidden');
+            startGame();
+        });
+
+        document.getElementById('btn-quit').addEventListener('click', () => {
+            quitToDashboard();
+        });
+
+        document.getElementById('btn-restart-go').addEventListener('click', () => {
+            showInterstitialAdAndRestart(() => {
+                startGame();
+            });
+        });
+    }
+
+    window.onload = () => {
+        resizeCanvas();
+        initStars();
+        setupInputs();
+        initUI();
+        updateHealthUI();
+        updateCoinsUI();
+        updateAbilityButtonsUI();
+        fetchJackpotData();
+        requestAnimationFrame(loop);
+    };
+</script>
+</body>
+</html>
